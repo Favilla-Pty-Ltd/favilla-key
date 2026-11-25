@@ -20,27 +20,34 @@ int main(){
   RkPass p{}; p.slot = -1; strcpy(p.site, "example.com"); strcpy(p.user, "u"); strcpy(p.pass, "password");
   int slot = -1; CHECK(rk_pw_save(&p, &slot) == 0 && slot >= 0, "saved");
   const uint8_t pre[3] = {0x5B, 0xAA, 0x60};
-  uint8_t mine[18], other[18 * 3];
+  // 11eb: a whole bucket under RK_HEALTH_MIN_BUCKET (100) is refused, so every
+  // bucket here holds 120 suffixes (real Have I Been Pwned ranges hold hundreds).
+  const int F = 120;
+  uint8_t mine[18], other[18 * F], withMine[18 * F];
   pack("1E4C9B93F3F0682250B6CF8331B7EE68FD8", mine);
-  pack("00000000000000000000000000000000001", other); pack("00000000000000000000000000000000002", other + 18); pack("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", other + 36);
+  for(int i = 0; i < F; i++){ char h[36]; snprintf(h, sizeof h, "%035X", i + 1); pack(h, other + 18 * i); }
+  memcpy(withMine, other, sizeof other); memcpy(withMine + 18 * 57, mine, 18);
   auto health = [&](){ for(int i = 0; i < rk_pw_count(); i++) if(rk_pw_slot_at(i) == slot) return (int)rk_pw_health(i); return -1; };
   // 1. a whole bucket that holds it
-  rk_health_bucket(pre, mine, 1); CHECK((health() & RK_H_BREACHED) && (health() & RK_H_CHECKED), "whole bucket: breached");
+  rk_health_bucket(pre, withMine, F); CHECK((health() & RK_H_BREACHED) && (health() & RK_H_CHECKED), "whole bucket: breached");
   // 2. a whole bucket without it: checked, not breached
-  rk_health_bucket(pre, other, 3); CHECK(!(health() & RK_H_BREACHED) && (health() & RK_H_CHECKED), "whole bucket without it: clean");
+  rk_health_bucket(pre, other, F); CHECK(!(health() & RK_H_BREACHED) && (health() & RK_H_CHECKED), "whole bucket without it: clean");
   // 3. parts: the hit in the first part, the last part without it
   rk_health_bucket(pre, mine, 1, false); CHECK(!(health() & RK_H_BREACHED), "a part decides nothing");
-  rk_health_bucket(pre, other, 3, true); CHECK((health() & RK_H_BREACHED) && (health() & RK_H_CHECKED), "hit in an earlier part counts");
+  rk_health_bucket(pre, other, F, true); CHECK((health() & RK_H_BREACHED) && (health() & RK_H_CHECKED), "hit in an earlier part counts");
   // 4. parts without it anywhere: clean, and the remembered hit was used up
-  rk_health_bucket(pre, other, 2, false); rk_health_bucket(pre, other + 36, 1, true);
+  rk_health_bucket(pre, other, F / 2, false); rk_health_bucket(pre, other + 18 * (F / 2), F / 2, true);
   CHECK(!(health() & RK_H_BREACHED) && (health() & RK_H_CHECKED), "parts without it: clean");
   // 5. the hit in the last part
-  rk_health_bucket(pre, other, 3, false); rk_health_bucket(pre, mine, 1, true); CHECK(health() & RK_H_BREACHED, "hit in the last part");
+  rk_health_bucket(pre, other, F, false); rk_health_bucket(pre, mine, 1, true); CHECK(health() & RK_H_BREACHED, "hit in the last part");
   // 6. a part's hit is forgotten when the password changes
   rk_health_bucket(pre, mine, 1, false);
   RkPass q{}; q.slot = slot; strcpy(q.site, "example.com"); strcpy(q.user, "u"); strcpy(q.pass, "password");   // saved again (same hash: noted afresh)
   int s2 = -1; rk_pw_save(&q, &s2);
-  rk_health_bucket(pre, other, 3, true); CHECK(!(health() & RK_H_BREACHED), "a part from before a save is forgotten");
+  rk_health_bucket(pre, other, F, true); CHECK(!(health() & RK_H_BREACHED), "a part from before a save is forgotten");
+  // 7. 11eb: a whole bucket under the floor records nothing
+  rk_health_bucket(pre, withMine, F); const int h0 = health();
+  rk_health_bucket(pre, other, 3); CHECK(health() == h0, "a bucket of 3 is refused, the verdict stays");
   printf("health_parts: %d checks, %d failures\n", n, bad);
   return bad ? 1 : 0;
 }

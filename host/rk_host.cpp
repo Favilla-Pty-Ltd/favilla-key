@@ -26,6 +26,7 @@ bool g0_vault_present(){ return g_vaultPresent; }
 bool g_v15 = true; int g_labelUsed = 0, g_labelCalls = 0;   // v15 model
 bool g0_v15_present(){ return g_v15; }
 bool g0_v17_present(){ return g_v15; }   // 9i: VAULT TOTP (kind 3 records); the host model answers op 7 as an error
+bool g0_limit_present(){ return false; }   // 11ep: the host model has the fixed 32 of a G0 before v24 (no VAULT ops 8 and 9)
 bool g_impArmed = false, g_impUsed = false; int g_impCalls = 0;   // v15 import window model: armed by a right UVCHECK, the very next VAULT op
 bool g0_vault(uint8_t op, const uint8_t* in, size_t n, uint8_t* out, size_t* outN, uint8_t* res, uint8_t* left){
   if(res) *res=0xFF; if(outN) *outN=0;

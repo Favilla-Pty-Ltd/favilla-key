@@ -5,11 +5,21 @@
 #   tools/export_public.sh <out-dir> [commit]
 # The commit's date is the private commit's date, so the same input gives the
 # same public commit id.
+#   tools/export_public.sh --update <public-clone> [commit]
+# lays the new tree over an existing clone of the public repo and commits the
+# difference on top of its history (after the first release).
 set -euo pipefail
-OUT=${1:?usage: tools/export_public.sh <out-dir> [commit]}
+UPDATE=0; [ "${1:-}" = "--update" ] && { UPDATE=1; shift; }
+DEST=${1:?usage: tools/export_public.sh [--update] <dir> [commit]}
 REV=${2:-HEAD}
 ROOT=$(git rev-parse --show-toplevel)
-[ -e "$OUT" ] && { echo "$OUT exists: give a new directory"; exit 1; }
+if [ $UPDATE = 1 ]; then
+  git -C "$DEST" rev-parse HEAD >/dev/null || { echo "$DEST is not a clone of the public repo"; exit 1; }
+  OUT=$(mktemp -d)
+else
+  [ -e "$DEST" ] && { echo "$DEST exists: give a new directory (or --update a clone)"; exit 1; }
+  OUT=$DEST
+fi
 mkdir -p "$OUT"
 git -C "$ROOT" archive "$REV" | tar -x -C "$OUT"
 while IFS= read -r p; do
@@ -44,10 +54,17 @@ done
 DATE=$(git -C "$ROOT" log -1 --format=%cI "$REV")
 SRC=$(git -C "$ROOT" rev-parse --short "$REV")
 DROP=$(grep -o 'FAVILLA_BENCH_DROP "[^"]*"' "$OUT/src/main.cpp" | cut -d'"' -f2)
-cd "$OUT"
-git init -q -b main
+if [ $UPDATE = 1 ]; then
+  find "$DEST" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+  cp -a "$OUT"/. "$DEST"/; rm -rf "$OUT"; OUT=$DEST
+  cd "$OUT"
+else
+  cd "$OUT"
+  git init -q -b main
+fi
 git add -A
+if [ $UPDATE = 1 ] && git diff --cached --quiet; then echo "no change since the last public commit"; exit 0; fi
 GIT_AUTHOR_NAME="Favilla Pty Ltd" GIT_AUTHOR_EMAIL="noreply@favillakey.io" GIT_AUTHOR_DATE="$DATE" \
 GIT_COMMITTER_NAME="Favilla Pty Ltd" GIT_COMMITTER_EMAIL="noreply@favillakey.io" GIT_COMMITTER_DATE="$DATE" \
-  git commit -q -m "Favilla KEY firmware, drop $DROP" -m "ESP32-S3 firmware, the STM32G0B1 isolated signer, the browser extension, host tests, fuzz targets and the protocols. GPL-3.0."
+  git commit -q -m "${PUBLIC_MSG:-Favilla KEY firmware, drop $DROP}" -m "${PUBLIC_BODY:-ESP32-S3 firmware, the STM32G0B1 isolated signer, the browser extension, host tests, fuzz targets and the protocols. GPL-3.0.}"
 echo "public copy of $SRC (drop $DROP): $(git rev-parse --short HEAD), $(git ls-files | wc -l) files"
