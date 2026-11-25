@@ -1,0 +1,1 @@
+{ "name": "aes128", "version": "1.0.0-favilla", "description": "kokke/tiny-AES-c (Unlicense), AES-128 ECB+CBC only, renamed AES128_* so it coexists with lib/tinyaes (AES-256). Used by the SE05x SCP03 session layer (K_SE).", "build": { "srcDir": ".", "srcFilter": ["+<aes128.c>"], "includeDir": "." } }

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Favilla KEY Login QR</title>
+<link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <svg class="mark" viewBox="0 0 100 100" shape-rendering="crispEdges" aria-hidden="true">
+      <path d="M7 7h14v14H7zM25 7h14v14H25zM61 7h14v14H61zM79 7h14v14H79zM7 25h14v14H7zM79 25h14v14H79zM7 61h14v14H7zM79 61h14v14H79zM7 79h14v14H7zM25 79h14v14H25zM61 79h14v14H61zM79 79h14v14H79z" fill="#262626"/>
+      <path d="M43 7h14v14H43zM43 79h14v14H43zM7 43h14v14H7zM79 43h14v14H79z" fill="#5C4A2C"/>
+      <path d="M25 25h14v14H25zM61 25h14v14H61zM25 61h14v14H25zM61 61h14v14H61z" fill="#7A6238"/>
+      <path d="M43 25h14v14H43zM43 61h14v14H43zM25 43h14v14H25zM61 43h14v14H61z" fill="#C9A45C"/>
+      <path d="M43 43h14v14H43z" fill="#F4F2EE"/>
+    </svg>
+    <span class="wordmark"><b>FAVILLA</b><span>KEY</span></span>
+    <span class="tag">Login QR</span>
+  </header>
+
+  <div class="qr" id="qrbox">
+    <canvas id="qr" width="232" height="232" aria-label="Login QR code" hidden></canvas>
+    <div id="empty" class="empty">Type a site to make the code</div>
+  </div>
+
+  <label for="site">Site or app <span class="count" id="sc"></span></label>
+  <input type="text" id="site" maxlength="100" spellcheck="false" autocomplete="off">
+  <div class="hint" id="sh"></div>
+
+  <label for="user">Username <em>optional</em> <span class="count" id="uc"></span></label>
+  <input type="text" id="user" maxlength="100" spellcheck="false" autocomplete="off">
+  <div class="hint" id="uh"></div>
+
+  <div class="keyact" id="keyact" hidden>
+    <button id="kin">Sign in with KEY</button>
+    <button id="knew" class="ghost">Save new login with KEY</button>
+    <div class="kstat" id="kstat"></div>
+    <label class="siteauto"><input type="checkbox" id="siteauto"> Ask the KEY automatically on this site</label>
+    <button id="showqr" class="link">Use a QR instead</button>
+  </div>
+
+  <!-- 11x (11 Nov 2026): a site that shows the two-step setup key as letters instead
+       of a QR. Typed here, the QR above becomes the otpauth code the KEY scans
+       (VAULT, Codes, ADD BY QR). Nothing leaves this computer. -->
+  <details class="otp" id="otpwrap">
+    <summary>Two-step setup key (when the site shows letters, not a QR)</summary>
+    <label for="otpkey">Setup key <span class="count" id="oc"></span></label>
+    <input type="text" id="otpkey" maxlength="140" spellcheck="false" autocomplete="off" placeholder="e.g. JBSW Y3DP EHPK 3PXP">
+    <div class="hint" id="oh"></div>
+    <div class="row2"><select id="otpdigits"><option value="6" selected>6 digits</option><option value="7">7 digits</option><option value="8">8 digits</option></select><select id="otpperiod"><option value="30" selected>every 30 s</option><option value="60">every 60 s</option></select></div>
+  </details>
+
+  <!-- 11aa: the site's recovery codes as a QR for the KEY (PASSWORD, UP, UP, ENTER TO ADD BY QR) -->
+  <details class="otp" id="rcwrap">
+    <summary>Recovery codes (the backup codes the site gave you)</summary>
+    <label for="rccodes">Codes, one per line <span class="count" id="rcc"></span></label>
+    <textarea id="rccodes" rows="4" spellcheck="false" autocomplete="off" placeholder="abcde-12345&#10;fghij-67890"></textarea>
+    <div class="hint" id="rch"></div>
+  </details>
+
+  <ol class="how" id="how">
+    <li><b>New account:</b> on the KEY, <b>New password</b>, pick a length, <b>Name the site</b>, <b>SCAN QR</b>.</li>
+    <li><b>Signing in:</b> on the KEY, <b>Passwords</b>, <b>SIGN IN BY QR</b>.</li>
+    <li>Click the username box on this page and press <b>ENTER</b> on the KEY.</li>
+  </ol>
+  <p class="foot" id="foot">No password in the QR. Nothing leaves this computer. <a href="#" id="pairlink">Pair your KEY</a> for one-press sign-in.</p>
+
+  <script src="qrcode.js"></script>
+  <script src="chan.js"></script>
+  <script src="dev.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

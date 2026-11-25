@@ -1,0 +1,36 @@
+{
+  "name": "WebSockets_Generic",
+  "version": "2.16.1",
+  "description": "RFC6455-based WebSockets Server and Client for Arduino boards. ESP32 build: dependencies stripped (ESP32 core provides networking).",
+  "keywords": "wifi, websocket, websockets-server, websockets-client, ESP32, ESP32_S3, http, web, server, client",
+  "authors": [
+    {
+      "name":  "Markus Sattler",
+      "url":   "https://github.com/Links2004"
+    },
+    {
+      "name":  "Khoi Hoang",
+      "url":   "https://github.com/khoih-prog",
+      "email": "khoih.prog@gmail.com",
+      "maintainer": true
+    }
+  ],
+  "repository":
+  {
+    "type": "git",
+    "url": "https://github.com/khoih-prog/WebSockets_Generic"
+  },
+  "homepage": "https://github.com/khoih-prog/WebSockets_Generic",
+  "export": {
+    "exclude": [
+      "linux",
+      "extras",
+      "tests"
+    ]
+  },
+  "license": "LGPL-3.0",
+  "frameworks": "*",
+  "platforms": "espressif32",
+  "examples": "examples/*/*/*.ino",
+  "headers": ["WebSocketsClient_Generic.h", "WebSocketsServer_Generic.h", "SocketIOclient_Generic"]
+}

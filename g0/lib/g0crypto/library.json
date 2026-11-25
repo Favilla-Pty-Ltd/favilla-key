@@ -1,0 +1,1 @@
+{"name": "g0crypto", "version": "1.2.0", "description": "SHA-256 / HMAC / HKDF, SHA-512 / HMAC-SHA512, RIPEMD-160 / HASH160 for the Favilla G0, PBKDF2-HMAC-SHA512", "build": {"srcDir": ".", "srcFilter": ["+<sha256.c>", "+<sha512.c>", "+<ripemd160.c>", "+<pbkdf2.c>"], "includeDir": "."}}

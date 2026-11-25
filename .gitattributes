@@ -1,0 +1,6 @@
+# LF everywhere, on every OS (24 Nov 2026): a Windows checkout with CRLF must
+# compile to the same bytes as a Linux one (reproducible releases).
+* text=auto eol=lf
+# Vendored ESP-IDF components: byte-exact, so their CHECKSUMS.json / .component_hash still verify
+components/espressif__*/** -text
+components/joltwallet__*/** -text

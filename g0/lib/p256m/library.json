@@ -1,0 +1,1 @@
+{ "name": "p256m", "version": "0.0.0+44af59e", "build": { "srcFilter": ["+<p256-m.c>"], "flags": ["-Os"] } }

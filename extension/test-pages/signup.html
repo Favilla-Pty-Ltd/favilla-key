@@ -1,0 +1,13 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sign up</title>
+<style>body{margin:0;background:#0d0d0d;color:#F4F2EE;font:16px/1.5 system-ui,sans-serif}main{max-width:420px;margin:48px auto;padding:0 16px}
+h1{font-size:22px;margin:0 0 4px}p.k{color:#8E8E8A;margin:0 0 24px;font-size:14px}label{display:block;margin:14px 0 4px;font-size:14px;color:#C9A45C}
+input{box-sizing:border-box;width:100%;padding:10px;border:1px solid #3a3a3a;border-radius:6px;background:#000;color:#F4F2EE;font-size:16px}
+.row{display:flex;gap:8px}.row input{flex:1}button{margin-top:20px;padding:10px 16px;border:1px solid #C9A45C;border-radius:6px;background:#181207;color:#F4F2EE;font-size:15px;cursor:pointer}
+.eye{margin:0;padding:0 12px;border-color:#3a3a3a;background:#000}#out{margin-top:16px;color:#8E8E8A;font-size:14px}a{color:#C9A45C}</style></head><body><main>
+<h1>Sign up</h1><p class="k">Favilla KEY test page. Nothing on it is sent anywhere.</p>
+<form id="f" autocomplete="on"><label for="email">Email</label><input id="email" name="email" type="email" autocomplete="username">
+<label for="pw">Password</label><input id="pw" name="password" type="password" autocomplete="new-password">
+<label for="pw2">Confirm password</label><input id="pw2" name="password_confirmation" type="password" autocomplete="new-password"><button type="submit">Create account</button></form><div id="out"></div>
+<p style="margin-top:32px"><a href="index.html">All test pages</a></p></main>
+<script>document.getElementById('f').addEventListener('submit',function(e){e.preventDefault();var p=[].slice.call(document.querySelectorAll('input[type=password]'));var ok=p.length<2||p[p.length-1].value===p[p.length-2].value||document.title==='Change password'&&p.length===3&&p[1].value===p[2].value;document.getElementById('out').textContent=(ok?'Boxes filled: ':'The two new boxes do not match. ')+p.map(function(x){return x.value.length+' characters';}).join(', ')+'. Nothing was sent.';});
+[].forEach.call(document.querySelectorAll('.eye'),function(b){b.addEventListener('click',function(){var i=b.previousElementSibling;i.type=i.type==='password'?'text':'password';});});</script></body></html>

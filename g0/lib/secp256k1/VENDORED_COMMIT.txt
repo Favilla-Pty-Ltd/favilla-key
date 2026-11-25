@@ -1,0 +1,3 @@
+978d3fa7f91996f7782db2cc4d112615ac93c867 2026-09-09
+15 Oct 2026: src/modules/recovery/main_impl.h and include/secp256k1_recovery.h added from the SAME commit (byte-identical to upstream), for BIP-137 message signing (ENABLE_MODULE_RECOVERY=1).
+28 Oct 2026: src/hash_impl.h secp256k1_sha256_transform_impl rewritten as a loop (FAVILLA block; the upstream unrolled body kept under -DFAVILLA_UNROLLED_SHA256). Saves ~9.3 KB of Thumb-1 code for the Emberwill image. Equivalence: tests/run_secp_sha256.sh.

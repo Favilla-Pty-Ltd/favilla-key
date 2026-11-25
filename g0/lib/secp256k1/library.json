@@ -1,0 +1,17 @@
+{
+  "name": "secp256k1",
+  "version": "0.6.0-favilla",
+  "description": "bitcoin-core/secp256k1, vendored for the Favilla KEY G0 (Cortex-M0+). Minimal precomputed tables: ECMULT_WINDOW_SIZE=2, COMB 2x5 (2 KB gen table).",
+  "build": {
+    "srcDir": "src",
+    "srcFilter": ["+<secp256k1.c>", "+<precomputed_ecmult.c>", "+<precomputed_ecmult_gen.c>"],
+    "includeDir": "include",
+    "flags": [
+      "-Isrc",
+      "-DECMULT_WINDOW_SIZE=2", "-DCOMB_BLOCKS=2", "-DCOMB_TEETH=5",
+      "-DENABLE_MODULE_EXTRAKEYS=1", "-DENABLE_MODULE_SCHNORRSIG=1", "-DENABLE_MODULE_ECDH=1", "-DENABLE_MODULE_RECOVERY=1",
+      "-DUSE_EXTERNAL_DEFAULT_CALLBACKS=1",
+      "-Wno-unused-function", "-Wno-unused-parameter"
+    ]
+  }
+}

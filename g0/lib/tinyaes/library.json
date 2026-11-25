@@ -1,0 +1,1 @@
+{ "name": "tinyaes", "version": "1.0.0-favilla", "description": "kokke/tiny-AES-c (Unlicense), AES-256-CBC only, for the K_G0 inner wrap", "build": { "srcDir": ".", "srcFilter": ["+<aes.c>"], "includeDir": "." } }

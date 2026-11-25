@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Favilla KEY connection</title>
+<link rel="stylesheet" href="popup.css">
+<link rel="stylesheet" href="probe.css">
+</head>
+<body class="probe">
+  <header>
+    <svg class="mark" viewBox="0 0 100 100" shape-rendering="crispEdges" aria-hidden="true">
+      <path d="M7 7h14v14H7zM25 7h14v14H25zM61 7h14v14H61zM79 7h14v14H79zM7 25h14v14H7zM79 25h14v14H79zM7 61h14v14H7zM79 61h14v14H79zM7 79h14v14H7zM25 79h14v14H25zM61 79h14v14H61zM79 79h14v14H79z" fill="#262626"/>
+      <path d="M43 7h14v14H43zM43 79h14v14H43zM7 43h14v14H7zM79 43h14v14H79z" fill="#5C4A2C"/>
+      <path d="M25 25h14v14H25zM61 25h14v14H61zM25 61h14v14H25zM61 61h14v14H61z" fill="#7A6238"/>
+      <path d="M43 25h14v14H43zM43 61h14v14H43zM25 43h14v14H25zM61 43h14v14H61z" fill="#C9A45C"/>
+      <path d="M43 43h14v14H43z" fill="#F4F2EE"/>
+    </svg>
+    <span class="wordmark"><b>FAVILLA</b><span>KEY</span></span>
+    <span class="tag">Connection</span>
+  </header>
+
+  <h1>Pair this browser</h1>
+  <p class="lede">Once paired, the extension notices login pages and asks your KEY, and the popup can ask it to sign in or save a new login, with no QR. The KEY still shows every request and types only after you press ENTER on it. Passwords never come back to this browser.</p>
+
+  <div class="card">
+    <div class="state" id="state">Checking&hellip;</div>
+    <div class="row">
+      <button id="connect">Connect KEY</button>
+      <button id="pair" disabled>Pair</button>
+      <button id="test" class="ghost" disabled>Test</button>
+      <button id="forget" class="ghost" hidden>Unpair</button>
+    </div>
+    <div class="code" id="codeBox" hidden>
+      <div class="lbl">Check the KEY shows the same number</div>
+      <div class="num" id="code">000 000</div>
+      <div class="sub">Press ENTER on the KEY if it matches. BACK if it does not.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <label class="tog"><input type="checkbox" id="auto"> <span><b>Ask the KEY automatically on login pages</b><br>
+      When a page has a login form, the extension asks the KEY by itself. The KEY lights up only if it holds a login for that exact site, and still types only after you press ENTER on it.
+      <em>The trade-off: the extension learns whether each login page you open has a saved login on the KEY (never which username or password). Turn this off to ask only with the Favilla button.</em></span></label>
+    <div class="off" id="offwrap" hidden><div class="lbl">Not asked automatically on</div><ul id="offlist"></ul></div>
+  </div>
+
+  <ol class="steps">
+    <li>On the KEY, in VAULT mode: <b>Settings</b>, <b>Browsers</b>, <b>PAIR A BROWSER</b>.</li>
+    <li>Here: <b>Connect KEY</b> (pick it in the list once), then <b>Pair</b>.</li>
+    <li>Check the 6 digits match on both screens, then press ENTER on the KEY.</li>
+  </ol>
+
+  <details class="bench">
+    <summary>Bench: USB ping, the KEY's log, console, Flash mode</summary>
+    <div class="row"><button id="ping10" class="ghost" disabled>Ping x10</button> <button id="flash" class="ghost" disabled>Flash mode</button> <button id="klogCopy" class="ghost">Copy log</button> <button id="klogClear" class="ghost" disabled>Clear log</button></div>
+    <p class="hint">The log and console are in bench builds only. Flash mode restarts the KEY on its flashing port, where <code>pio run -t upload</code> finds it; power it off and on to cancel.</p>
+    <pre id="klog" class="klog" aria-live="off"></pre>
+    <form id="conForm" class="con"><span class="prompt">&gt;</span><input id="con" type="text" autocomplete="off" spellcheck="false" placeholder="fido status, bt status, pm, wdt last ..." disabled></form>
+  </details>
+  <pre id="log" aria-live="polite"></pre>
+  <script src="chan.js"></script>
+  <script src="dev.js"></script>
+  <script src="probe.js"></script>
+</body>
+</html>

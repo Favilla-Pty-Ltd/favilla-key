@@ -1,0 +1,66 @@
+# ============================================================================
+# FAVILLA KEY - partition table (ESP32-S3-WROOM-1U N16R8: 16MB flash, 8MB PSRAM)
+# ASCII ONLY in this file: PlatformIO's partition parser reads it with the
+# Windows locale codepage (cp1252), not UTF-8. No unicode, ever.
+#
+# Delta vs stock default_16MB.csv:
+# * nvs / otadata / app0 / app1: IDENTICAL offsets and sizes.
+# * coredump: REMOVED 19 Oct 2026 (review F7). With a coredump partition the
+#   panic handler writes every task's stack (MAX_TASKS_NUM=64) to flash, so a
+#   crash during onboarding or a ceremony could persist the seed, K_SE/K_G0
+#   or the spend PIN. The prebuilt Arduino core has COREDUMP_ENABLE_TO_FLASH on
+#   and sdkconfig.defaults is inert here, so the partition is the only lever
+#   that reaches the release env. No partition = the panic handler has nowhere
+#   to write. 0xFF0000-0x1000000 is now unallocated reserve. Units built before
+#   this change must have that region erased once (esptool erase_region).
+#   ASCII only, see header.
+#   Default-partition data and both OTA app slots survive the reflash.
+# * spiffs (LittleFS, fonts): REMOVED. Fonts are now embedded in the signed
+#   firmware image (src/fonts_data.h) instead of an unsigned filesystem, so a
+#   clean secure-boot cannot be bypassed by poisoning font/config data on flash.
+#   The old span 0xC90000-0xF80000 is left UNALLOCATED (reserve). nvs_sec and
+#   nvs_game keep their exact prior offsets, so the provisioned
+#   seed blob / pairing / device mode survive this reflash untouched.
+#   No `pio run -t uploadfs` step any more - there is no filesystem.
+# * nvs_sec (64KB): seed blob, LAN pairing, bunker tokens, device mode,
+#   NWC, motion lock. Near-zero writes post-provisioning.
+# * nvs_game (128KB): CIPHER + steps. Churns freely, zero shared fate;
+#   corruption self-heals by erasing this partition only. Sized DOWN from an
+#   initial 384KB after bench testing: NVS keeps per-entry bookkeeping in
+#   INTERNAL RAM (~17KB when a 384KB partition is stuffed full), which shrank
+#   the largest contiguous DMA block below what the camera scan pipeline
+#   needs. 128KB caps the worst-case RAM tax at ~6KB while still giving the
+#   game ~130x headroom over its ~30 keys and a 32-page wear budget.
+#   0xFB0000-0xFF0000 left unallocated as reserve - do NOT grow nvs_game
+#   without re-running the full-partition scan test.
+#
+# * nvs_vault (64KB, 2 Nov 2026, Vault spec ruling P2): passwordless passkey
+#   records (and, in phase 3, passwords), each SEALED by the G0. Its own
+#   partition so vault records can never fill nvs_sec, where the seed blob
+#   lives. Taken from the reserve after nvs_game; every other offset is
+#   unchanged, so reflashing this table keeps all existing data. Worst-case
+#   RAM tax about 4KB when full (nvs_game's 128KB measured ~8KB).
+# * nvs_vault grown to 128KB (3 Nov 2026, Vault spec P4-1: 200 records,
+#   passkeys and passwords). Same start, so records written under the 64KB
+#   table stay where they are. The firmware erases the new upper 64KB once
+#   before its first mount at this size (old 384KB nvs_game pages may sit
+#   there on bench units). 0xFD0000-0xFF0000 is still unallocated reserve.
+#   RAM tax about 8KB when full, as nvs_game measured.
+# * nvs_vault grown to 256KB (23 Nov 2026, drop 11dr: RK_MAX 400). Same start
+#   again, so every record stays where it is. The firmware erases the pages
+#   past the size it was last checked at (the vsz marker, 128KB) once before
+#   the first mount at 256KB: 0xFD0000-0xFF0000 held the old 384KB nvs_game's
+#   tail on bench units. 0xFF0000-0x1000000 is the only reserve left here
+#   (0xC90000-0xF80000 is still unallocated).
+#
+# platformio.ini:  board_build.partitions = partitions_favilla_16mb.csv
+#                  (and NO board_build.filesystem line - filesystem removed)
+# ============================================================================
+# Name,     Type, SubType,  Offset,   Size
+nvs,        data, nvs,      0x9000,   0x5000
+otadata,    data, ota,      0xE000,   0x2000
+app0,       app,  ota_0,    0x10000,  0x640000
+app1,       app,  ota_1,    0x650000, 0x640000
+nvs_sec,    data, nvs,      0xF80000, 0x10000
+nvs_game,   data, nvs,      0xF90000, 0x20000
+nvs_vault,  data, nvs,      0xFB0000, 0x40000

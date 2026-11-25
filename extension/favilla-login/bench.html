@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KEY Bench</title>
+<!-- 11ak (12 Nov 2026): the Bench panel as an ordinary web page, so a browser
+     automation session (Claude in Chrome) can read the KEY's live log and
+     send console lines. It talks WebHID straight to the KEY's channel
+     (usage page 0xFF46): LOG 0x02 / CON 0x03, bench builds only. Serve it
+     from localhost (python -m http.server in this folder); WebHID needs a
+     secure context and localhost is one. The extension's own Options page
+     keeps its Bench panel; close that one while this is open, or both pull
+     the same log and interleave. -->
+<style>
+  :root { --bg: #0d0f11; --panel: #15181b; --ink: #f4f2ee; --brass: #c9a45c; --grey: #9a9a9a; --line: #2a2f34; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--ink); font: 14px/1.4 Archivo, system-ui, sans-serif; display: flex; flex-direction: column; }
+  @font-face { font-family: Archivo; src: url(Archivo-400.woff2) format('woff2'); font-weight: 400; }
+  @font-face { font-family: Archivo; src: url(Archivo-700.woff2) format('woff2'); font-weight: 700; }
+  @font-face { font-family: JBM; src: url(JetBrainsMono-400.woff2) format('woff2'); }
+  header { display: flex; align-items: center; gap: 14px; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+  header .mark { font-weight: 700; letter-spacing: .02em; } header .mark span { color: var(--brass); font-weight: 400; letter-spacing: .18em; margin-left: .32em; }
+  header .st { color: var(--grey); flex: 1; }
+  button { background: transparent; color: var(--brass); border: 1px solid var(--brass); border-radius: 6px; padding: 6px 12px; font: inherit; cursor: pointer; }
+  button:disabled { opacity: .4; cursor: default; }
+  button.solid { background: var(--brass); color: #141414; }
+  #log { flex: 1; margin: 0; padding: 10px 16px; overflow: auto; white-space: pre-wrap; word-break: break-all; font: 12px/1.35 JBM, ui-monospace, monospace; color: #d6d6d6; background: var(--panel); }
+  form { display: flex; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--line); }
+  form .p { color: var(--brass); font: 14px JBM, monospace; align-self: center; }
+  form input { flex: 1; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; font: 13px JBM, monospace; }
+  .hint { color: var(--grey); font-size: 12px; padding: 0 16px 8px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="mark">FAVILLA<span>KEY</span> bench</div>
+  <div class="st" id="st">Not connected.</div>
+  <button id="connect" class="solid">Connect KEY</button>
+  <button id="flash" disabled>Flash mode</button>
+  <button id="clear" disabled>Clear log</button>
+</header>
+<pre id="log" aria-live="off"></pre>
+<form id="f"><span class="p">&gt;</span><input id="con" type="text" autocomplete="off" spellcheck="false" placeholder="fido status, bt status, pm, wdt last ..." disabled></form>
+<div class="hint">Bench builds only. Connect once per browser session; the page follows the KEY through resets and keeps the log. Flash mode restarts the KEY on its flashing port.</div>
+<script>
+(function(){
+  'use strict';
+  var $ = function(id){ return document.getElementById(id); };
+  var log = $('log'), st = $('st'), con = $('con');
+  var dev = null, cur = 0, timer = null, busy = false;
+  var FILTER = [{ usagePage: 0xFF46, usage: 0x01 }];
+  function say(t){ st.textContent = t; }
+  function append(t){
+    var stick = log.scrollTop + log.clientHeight >= log.scrollHeight - 4;
+    log.textContent += t;
+    if(log.textContent.length > 400000) log.textContent = log.textContent.slice(-300000);
+    if(stick) log.scrollTop = log.scrollHeight;
+  }
+  function isChan(d){ return d.collections.some(function(c){ return c.usagePage === 0xFF46; }); }
+  function enable(on){ $('flash').disabled = $('clear').disabled = con.disabled = !on; }
+  function use(d){
+    if(dev === d && d.opened) return Promise.resolve(d);
+    dev = d;
+    return (d.opened ? Promise.resolve() : d.open()).then(function(){ return d; });
+  }
+  function pull(){
+    var d = dev; if(!d || !d.opened || busy) return; busy = true;
+    var out = new Uint8Array(64); out[0] = 2; out[1] = cur & 255; out[2] = (cur >>> 8) & 255; out[3] = (cur >>> 16) & 255; out[4] = (cur >>> 24) & 255; out[5] = 32;
+    var dec = new TextDecoder(), done = false, t;
+    function finish(){ if(done) return; done = true; clearTimeout(t); d.removeEventListener('inputreport', h); busy = false; }
+    function h(e){
+      var b = new Uint8Array(e.data.buffer, e.data.byteOffset, e.data.byteLength); if(b[0] !== 0x82) return;
+      var next = (b[3] | (b[4] << 8) | (b[5] << 16) | (b[6] << 24)) >>> 0, n = b[2];
+      if(b[1] & 2) append('[... earlier lines lost ...]\n');
+      if(n) append(dec.decode(b.subarray(7, 7 + n)));
+      cur = next;
+      if(!(b[1] & 1)) finish(); else { clearTimeout(t); t = setTimeout(finish, 400); }
+    }
+    d.addEventListener('inputreport', h);
+    t = setTimeout(finish, 600);
+    d.sendReport(0, out).catch(function(){ finish(); });
+  }
+  function start(d){
+    return use(d).then(function(){
+      cur = 0; busy = false;
+      if(log.textContent) append('\n==== KEY reconnected ' + new Date().toLocaleTimeString() + ' ====\n');
+      if(!timer) timer = setInterval(pull, 250);
+      say('Connected: ' + (d.productName || 'Favilla KEY') + '. Live.'); enable(true);
+    });
+  }
+  function stop(){ if(timer){ clearInterval(timer); timer = null; } busy = false; enable(false); }
+  function send(line){
+    if(!dev || !dev.opened) return Promise.reject(new Error('not connected'));
+    var b = new TextEncoder().encode(line); if(b.length > 62) b = b.subarray(0, 62);
+    var out = new Uint8Array(64); out[0] = 3; out[1] = b.length; out.set(b, 2);
+    return dev.sendReport(0, out);
+  }
+  $('connect').addEventListener('click', function(){
+    if(!('hid' in navigator)){ say('This browser has no WebHID. Use Chrome or Edge.'); return; }
+    navigator.hid.requestDevice({ filters: FILTER }).then(function(list){
+      var d = list.filter(isChan)[0]; if(!d){ say('No KEY chosen.'); return; }
+      return start(d);
+    }).catch(function(e){ say('Connect failed: ' + e.message); });
+  });
+  $('clear').addEventListener('click', function(){ log.textContent = ''; });
+  $('flash').addEventListener('click', function(){
+    append('> fido bootloader\n');
+    send('fido bootloader').then(function(){ say('Flash mode sent. The KEY restarts on its flashing port; run the upload now, or power it off and on to cancel.'); })
+      .catch(function(e){ say('Flash mode failed: ' + e.message); });
+  });
+  $('f').addEventListener('submit', function(ev){
+    ev.preventDefault();
+    var line = con.value.trim(); if(!line) return;
+    append('> ' + line + '\n'); con.value = '';
+    send(line).catch(function(e){ say('Send failed: ' + e.message); });
+  });
+  // follow the KEY through a reset (the device goes away and comes back as a new handle)
+  if('hid' in navigator){
+    navigator.hid.addEventListener('disconnect', function(e){ if(dev && e.device === dev){ stop(); dev = null; say('KEY gone (reset or unplugged); waiting for it.'); } });
+    navigator.hid.addEventListener('connect', function(e){ if(!dev && isChan(e.device)) start(e.device).catch(function(){}); });
+    // a KEY allowed earlier in this browser profile needs no picker
+    navigator.hid.getDevices().then(function(list){ var d = list.filter(isChan)[0]; if(d) start(d).catch(function(){}); });
+  }
+})();
+</script>
+</body>
+</html>

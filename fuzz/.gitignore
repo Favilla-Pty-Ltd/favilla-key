@@ -1,0 +1,6 @@
+out/
+crash-*
+leak-*
+timeout-*
+oom-*
+logs/

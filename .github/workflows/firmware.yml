@@ -1,0 +1,143 @@
+# Builds the KEY firmware on every push: the G0 signer (g0/, env g0), and the
+# ESP32-S3 serial build (favilla_key_fido,
+# USB logs), the channel build (favilla_key_fido_vchan, browser extension) and
+# the light-sleep serial build (favilla_key_fido_pm, rebuilt core, 9n).
+# Output: UNSIGNED app images (firmware.bin) plus the ELFs for decoding
+# backtraces. Signing happens only on the Forge, with the ceremony key, which
+# never comes near GitHub. The bootloader is deliberately NOT published: an
+# unsigned bootloader must never be flashed to a Secure Boot board.
+name: firmware
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        env: [favilla_key_fido, favilla_key_fido_vchan, favilla_key_fido_pm, favilla_key_fido_release, favilla_key_fido_rftest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: PlatformIO cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          # 9n: one cache per env. The light-sleep env rebuilds the core inside
+          # ~/.platformio, and a shared cache would hand that core to the stock envs.
+          key: pio-${{ runner.os }}-${{ matrix.env }}-${{ hashFiles('platformio.ini', 'components/**') }}
+      - name: Install PlatformIO
+        run: pip install "platformio==6.1.18"
+      - name: Build ${{ matrix.env }}
+        run: pio run -e ${{ matrix.env }}
+      - name: Name the drop
+        id: drop
+        run: |
+          D=$(grep -oP '#define FAVILLA_BENCH_DROP "\K[^"]+' src/main.cpp | head -1)
+          echo "drop=${D:-unknown}" >> "$GITHUB_OUTPUT"
+          sha256sum .pio/build/${{ matrix.env }}/firmware.bin | tee .pio/build/${{ matrix.env }}/firmware.bin.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.env }}-${{ steps.drop.outputs.drop }}-unsigned
+          path: |
+            .pio/build/${{ matrix.env }}/firmware.bin
+            .pio/build/${{ matrix.env }}/firmware.bin.sha256
+            .pio/build/${{ matrix.env }}/firmware.elf
+          retention-days: 30
+
+  g0:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: PlatformIO cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: pio-g0-${{ runner.os }}-${{ hashFiles('g0/platformio.ini') }}
+      - name: Install PlatformIO
+        run: pip install "platformio==6.1.18"
+      - name: Build the G0 signer
+        run: pio run -d g0 -e g0
+      - name: Size report (biggest symbols and sections)
+        run: |
+          T=$(ls -d ~/.platformio/packages/toolchain-gccarmnoneeabi*/bin | head -1)
+          $T/arm-none-eabi-size -A g0/.pio/build/g0/firmware.elf
+          echo "== top 70 symbols in flash (size, type, name)"
+          $T/arm-none-eabi-nm --size-sort -S -C g0/.pio/build/g0/firmware.elf | grep -i ' [tTrR] ' | tail -70
+          echo "== per object file (text+data)"
+          find g0/.pio/build/g0 -name '*.o' -exec $T/arm-none-eabi-size {} + | sort -n -k1 | tail -40
+      - name: G0 word list (identical to v15's, and its size)
+        run: cd g0 && ./tests/run_bip39_fc.sh
+      - name: G0 P-256 signing (RFC 6979 vectors, python-ecdsa cross-check, size)
+        run: |
+          pip install ecdsa
+          cd g0 && ./tests/run_p256_det.sh
+      - name: G0 v17, TOTP core (RFC vectors, and its size)
+        run: cd g0 && ./tests/run_totp.sh
+      - name: App channel pairing, worked example checked against the KEY's derive
+        run: pip install --quiet cryptography && python3 tests/app_pair_vector.py | grep CHECK > /tmp/pv.txt && g++ -std=c++17 -Wall host/app_pair_check.cpp -lcrypto -o /tmp/pv && /tmp/pv < /tmp/pv.txt
+      - name: KEY app channel PW_SAVE body, keystream vector and parser (chan_proto.h, 11ax)
+        run: g++ -std=c++17 -Wall -Wextra -fsanitize=address,undefined -I src tests/pw_save_test.cpp -lcrypto -o /tmp/pws && /tmp/pws
+      - name: KEY app channel IMPORT_ITEM body, Python keystream vectors and parser (chan_proto.h, 11bf)
+        run: g++ -std=c++17 -Wall -Wextra -fsanitize=address,undefined -I src tests/import_item_test.cpp -lcrypto -o /tmp/imp && /tmp/imp
+      - name: KEY GEN_PW rules and generator, PW_SAVE flags byte (chan_proto.h, pwgen.h, 11bi)
+        run: g++ -std=c++17 -Wall -Wextra -Wno-deprecated-declarations -fsanitize=address,undefined -Ihost/inc -Isrc tests/gen_pw_test.cpp -lcrypto -o /tmp/gp && /tmp/gp
+      - name: KEY import keeps entries already on the KEY, without an OPEN (pk_records.cpp, 11bh)
+        run: g++ -std=c++17 -fsanitize=address,undefined -DARDUINO_USB_CDC_ON_BOOT=1 -DFAVILLA_PK_RESTORABLE=1 -Ihost/inc -Isrc -Ihost -Ilib/ArduinoJson/src tests/import_dup_test.cpp host/rk_host.cpp -lcrypto -o /tmp/id && /tmp/id
+      - name: KEY breach check, a bucket in parts (pk_records.cpp, 11bc)
+        run: g++ -std=c++17 -fsanitize=address,undefined -DARDUINO_USB_CDC_ON_BOOT=1 -DFAVILLA_PK_RESTORABLE=1 -Ihost/inc -Isrc -Ihost -Ilib/ArduinoJson/src tests/health_parts_test.cpp host/rk_host.cpp -lcrypto -o /tmp/hp && /tmp/hp
+      - name: KEY saved-login site matching (login_qr.h)
+        run: g++ -std=c++17 -Wall -Wextra -fsanitize=address,undefined -I src tests/login_qr_test.cpp -o /tmp/lq && /tmp/lq
+      - name: KEY one-time code QR reader (otpauth.h)
+        run: g++ -std=c++17 -Wall -Wextra -fsanitize=address,undefined -I src tests/otpauth_test.cpp -o /tmp/otp && /tmp/otp
+      - name: KEY Nostr event id against Node's JSON.stringify (nostr_canon.h, 11an)
+        run: |
+          node tests/event_id_vectors.mjs 20000 > /tmp/ev.jsonl
+          g++ -std=c++17 -Wall -Wextra -fsanitize=address,undefined -I src -I lib/ArduinoJson/src tests/event_id_test.cpp -lcrypto -o /tmp/evid && /tmp/evid < /tmp/ev.jsonl
+      - name: KEY received-event check, id and BIP-340 signature (nostr_verify.h, 11bl, issues 41 and 45)
+        run: |
+          sudo apt-get install -y -qq libmbedtls-dev > /dev/null
+          python3 tests/event_verify_vectors.py 300 > /tmp/evv.jsonl
+          g++ -std=c++17 -Wno-deprecated-declarations -fsanitize=address,undefined -Ifuzz/inc -Isrc -Ilib/ArduinoJson/src tests/event_verify_test.cpp -lmbedcrypto -o /tmp/evv && /tmp/evv < /tmp/evv.jsonl
+      - name: CIPHER daily block check, proof of work and floor (cipher_block.h, 11bs, issue 39)
+        run: g++ -std=c++17 -Wall -Wextra -Wno-deprecated-declarations -fsanitize=address,undefined -Ihost/inc -Isrc tests/cipher_block_test.cpp -lcrypto -o /tmp/cb && /tmp/cb
+      - name: Emberwill ceremony check on the ESP32 against the G0's own builder, every bit flipped (ember_check.h, G0 v20, 11cd)
+        run: |
+          mkdir -p /tmp/ecb
+          for f in g0/src/ember_plan.c g0/src/ember_tx.c g0/lib/g0crypto/sha256.c g0/lib/g0crypto/ripemd160.c; do gcc -O1 -fsanitize=address,undefined -Ig0/src -Ig0/lib/g0crypto -c $f -o /tmp/ecb/$(basename $f .c).o; done
+          g++ -std=c++17 -O1 -Wall -Wextra -Wno-deprecated-declarations -fsanitize=address,undefined -Ifuzz/inc -Isrc -Ig0/src tests/ember_check_test.cpp /tmp/ecb/*.o -lmbedcrypto -o /tmp/ect && /tmp/ect
+      - name: G0 Emberwill glue and end to end (v20 ceremony replies)
+        run: |
+          pip install --quiet embit
+          cd g0 && bash tests/run_ember_glue.sh && bash tests/run_ember_e2e.sh
+      - name: Checksums
+        run: sha256sum g0/.pio/build/g0/firmware.elf g0/.pio/build/g0/firmware.bin | tee g0/.pio/build/g0/SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: g0-signer
+          path: |
+            g0/.pio/build/g0/firmware.elf
+            g0/.pio/build/g0/firmware.bin
+            g0/.pio/build/g0/SHA256SUMS
+          retention-days: 30
+
+  extension:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Version
+        id: v
+        run: |
+          echo "v=$(grep -oP '"version": *"\K[^"]+' extension/favilla-login/manifest.json)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: favilla-login-${{ steps.v.outputs.v }}
+          path: extension/favilla-login
+          retention-days: 30

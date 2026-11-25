@@ -1,0 +1,1 @@
+{ "name": "scp03", "version": "1.0.0", "description": "SE05x AESKey applet session (SCP03) for the Favilla G0 — port of the NXP Plug & Trust session path, transport-agnostic", "build": { "srcDir": ".", "srcFilter": ["+<scp03.c>"], "includeDir": "." }, "dependencies": { "aes128": "*" } }

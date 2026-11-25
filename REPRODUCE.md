@@ -1,0 +1,114 @@
+# Reproducing a Favilla KEY release
+
+Anyone can rebuild the Favilla KEY's main firmware from this source and get the
+exact file Favilla signs and ships. You do not have to trust our build machine:
+build the same commit yourself, then check that the signed release is your
+build plus a signature.
+
+## What this covers
+
+- **Covered:** the ESP32-S3 application, `firmware.bin` from the
+  `favilla_key_fido_release` environment: the KEY's main firmware, which runs
+  the screen, buttons, camera, Wi-Fi and Bluetooth, and serves the phone page.
+- **Not covered yet:** the STM32G0 isolated signer (`g0/`) and the ESP32-S3
+  bootloader. Their reproducibility has not been checked.
+
+## Checked so far
+
+The method was first checked on 25 Nov 2026 on a pre-release build: two
+Windows builds in separate folders and one Linux build in Docker gave the same
+SHA-256.
+
+| Release | Commit | SHA-256 of firmware.bin | Checked on |
+|---|---|---|---|
+| Drop 11et (first public release) | to be added | to be added | Windows, Docker, GitHub Actions |
+
+## Route 1: Docker (any computer)
+
+You need git and Docker.
+
+1. Get the source at the release's commit:
+
+   ```
+   git clone https://github.com/Favilla-Pty-Ltd/favilla-key
+   cd favilla-key
+   git checkout <release commit>
+   ```
+
+2. Build the build image (once):
+
+   ```
+   docker build -t favilla-build docker
+   ```
+
+3. Build the release. The first run downloads the toolchain and rebuilds the
+   core, which takes 10 to 40 minutes. It ends by printing the SHA-256 of
+   `firmware.bin`:
+
+   ```
+   docker run --rm -v "<full path of your clone>:/favilla" favilla-build
+   ```
+
+## Route 2: PlatformIO directly (checked on Windows)
+
+You need git, Python 3 and PlatformIO 6.1.18 (`pip install platformio==6.1.18`). This route has been checked on Windows; Linux and macOS use the same steps but have not been checked yet.
+
+1. Get the source at the release's commit, as in Route 1.
+2. Build:
+
+   ```
+   pio run -e favilla_key_fido_release
+   ```
+
+3. Hash the result:
+   - Linux or macOS: `sha256sum .pio/build/favilla_key_fido_release/firmware.bin`
+   - Windows PowerShell: `Get-FileHash .pio\build\favilla_key_fido_release\firmware.bin -Algorithm SHA256`
+
+## Check a signed release against your build
+
+A signed release is your build, padded to a whole 4096-byte sector, plus one
+signature sector. A signature is different every time it is made, so the
+signed file itself never matches a rebuild byte for byte. This checks
+everything the signature covers:
+
+```
+python tools/verify_release.py <signed release .bin> .pio/build/favilla_key_fido_release/firmware.bin
+```
+
+`MATCH` means the signed release is exactly your build plus a signature. To
+check the signature itself, use `espsecure verify_signature` with the Secure
+Boot public key published with the release.
+
+## Rules that matter
+
+- **Build the release's exact commit.** The build stamps in the commit's
+  time instead of the clock, so a different commit gives a different file,
+  even if no code changed.
+- **Start from the committed files.** The core rebuild deletes
+  `dependencies.lock` and `CMakeLists.txt` and edits `sdkconfig.defaults` in
+  the project folder. Before building again in the same folder, run
+  `git restore .`
+- **One build at a time per computer.** Builds share a component download
+  cache, and two at once can fail with "cannot lock ref".
+- **Do not flash what you build.** A Favilla KEY with Secure Boot only runs
+  firmware signed by Favilla. Your build is for comparing.
+
+## What makes it reproducible
+
+- **Pinned tools:** `platformio.ini` names one fixed platform release
+  (pioarduino 55.03.33), which fixes the ESP-IDF, Arduino core and GCC
+  toolchain versions. The Docker image pins Python 3.12 and
+  PlatformIO 6.1.18.
+- **Pinned components:** `dependencies.lock` pins the ESP-IDF components, and
+  `scripts/pin_hybrid.py` pins the one component the core rebuild would
+  otherwise fetch from a moving branch.
+- **No clock:** `scripts/build_epoch.py` sets `SOURCE_DATE_EPOCH` to the
+  commit time, and the firmware has no `__DATE__` or `__TIME__`.
+- **No folder names:** source paths are mapped to fixed names for C, C++ and
+  assembly (`scripts/build_epoch.py`), and `CONFIG_APP_REPRODUCIBLE_BUILD`
+  does the same inside the core rebuild.
+- **Same bytes on every OS:** `.gitattributes` checks text files out with LF
+  line endings everywhere, and `scripts/strip_for_hash.py` removes the
+  ELF's debug information before the image is made. Each OS writes paths
+  into debug information in its own way, and the image carries a hash of the
+  ELF. The full ELF is kept as `firmware.debug.elf` for decoding crashes.
