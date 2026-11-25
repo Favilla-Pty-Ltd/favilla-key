@@ -10,8 +10,10 @@ build plus a signature.
 - **Covered:** the ESP32-S3 application, `firmware.bin` from the
   `favilla_key_fido_release` environment: the KEY's main firmware, which runs
   the screen, buttons, camera, Wi-Fi and Bluetooth, and serves the phone page.
-- **Not covered yet:** the STM32G0 isolated signer (`g0/`) and the ESP32-S3
-  bootloader. Their reproducibility has not been checked.
+- **Covered:** the STM32G0 isolated signer, `g0` firmware.bin, built on Linux
+  (see "The G0 signer").
+- **Not covered yet:** the ESP32-S3 bootloader. Its reproducibility has not
+  been checked.
 
 ## Checked so far
 
