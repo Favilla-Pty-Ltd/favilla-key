@@ -71,6 +71,9 @@ jobs:
           $T/arm-none-eabi-size -A g0/.pio/build/g0/firmware.elf
           echo "== top 70 symbols in flash (size, type, name)"
           $T/arm-none-eabi-nm --size-sort -S -C g0/.pio/build/g0/firmware.elf | grep -i ' [tTrR] ' | tail -70
+          echo "== every symbol by address (to compare a G0 build from another machine)"
+          $T/arm-none-eabi-nm -n g0/.pio/build/g0/firmware.elf | grep -i ' [tTrRdDbB] ' | sha256sum
+          $T/arm-none-eabi-nm -n g0/.pio/build/g0/firmware.elf | grep -i ' [tTrR] ' | awk '{print $1, $3}'
           echo "== per object file (text+data)"
           find g0/.pio/build/g0 -name '*.o' -exec $T/arm-none-eabi-size {} + | sort -n -k1 | tail -40
       - name: G0 word list (identical to v15's, and its size)
