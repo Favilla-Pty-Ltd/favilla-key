@@ -19,9 +19,11 @@ The method was first checked on 25 Nov 2026 on a pre-release build: two
 Windows builds in separate folders and one Linux build in Docker gave the same
 SHA-256.
 
+Commits are those of the public repository (github.com/Favilla-Pty-Ltd/favilla-key).
+
 | Release | Commit | SHA-256 of firmware.bin | Checked on |
 |---|---|---|---|
-| Drop 11et (first public release) | to be added | to be added | Windows, Docker, GitHub Actions |
+| Drop 11et (first public release) | `651f053` | `80c2ba83c35dc957e1f56b96508fe0cc94cbc26c7dd564900222d1e44a310f4e` | Windows 11 (PlatformIO 6.1.18, own PlatformIO home), Docker on Windows (`docker/Dockerfile`), GitHub Actions (Linux), 25 Nov 2026 |
 
 ## Route 1: Docker (any computer)
 
