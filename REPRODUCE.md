@@ -66,6 +66,34 @@ You need git, Python 3 and PlatformIO 6.1.18 (`pip install platformio==6.1.18`).
    - Linux or macOS: `sha256sum .pio/build/favilla_key_fido_release/firmware.bin`
    - Windows PowerShell: `Get-FileHash .pio\build\favilla_key_fido_release\firmware.bin -Algorithm SHA256`
 
+## The G0 signer
+
+The STM32G0 signer (`g0/`) is reproducible on Linux: Docker on any computer,
+a Linux PC, or GitHub Actions. Its toolchain, platform and STM32 framework are
+pinned in `g0/platformio.ini`, and nothing in it stamps a date or a path.
+
+| Release | Commit | SHA-256 of g0 firmware.bin | Checked on |
+|---|---|---|---|
+| Drop 11et (G0 v24) | `651f053` | `352f617822493e220c72df0f1272846202e89e051ad3f29166617b4c0234cb23` | Docker on Windows, GitHub Actions (two runs), 25 Nov 2026 |
+
+The G0 source did not change in the commits after `651f053` that only touched
+tests, documents and the build check, so they give the same file.
+
+With Docker (the image from Route 1), from the top of your clone. Delete
+`g0/.pio` first if you built the G0 outside Docker in the same folder, so no
+object from another compiler is reused:
+
+```
+docker run --rm -v "<your clone>:/favilla" favilla-build sh -c "pio run -d g0 -e g0 && sha256sum g0/.pio/build/g0/firmware.bin"
+```
+
+A G0 build made directly on Windows differs from the Linux one in one function
+(`run_selftest`, the power-on BIP-340 check): 59 bytes, the same instructions
+in a different but equivalent order. The Windows build of the same GCC 7.2.1
+makes some different internal choices. Every symbol sits at the same address
+and every section has the same size; the code does the same thing. Use Docker
+or Linux to compare a G0 build with a release.
+
 ## Check a signed release against your build
 
 A signed release is your build, padded to a whole 4096-byte sector, plus one

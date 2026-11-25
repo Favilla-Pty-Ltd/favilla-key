@@ -10,6 +10,8 @@
 # Build the image once, then build a release (see REPRODUCE.md):
 #   docker build -t favilla-build docker
 #   docker run --rm -v "<your clone>:/favilla" favilla-build
+# The G0 signer (Linux is its reference build, see REPRODUCE.md):
+#   docker run --rm -v "<your clone>:/favilla" favilla-build sh -c "pio run -d g0 -e g0 && sha256sum g0/.pio/build/g0/firmware.bin"
 FROM python:3.12-slim-bookworm
 
 RUN apt-get update \
